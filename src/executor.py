@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Any
+from typing import Any, Callable, Awaitable
 
-from .models import Step, ToolResult, PermissionToken
+from .models import Step, ToolResult, PermissionToken, SubTask
 from .registry import ToolRegistry
 from .router import Router
 from .permission import PermissionScoper
@@ -12,6 +13,8 @@ from .auditor import AuditLog
 from .tools import create_tool
 
 logger = logging.getLogger(__name__)
+
+SubTaskHandler = Callable[[SubTask], Awaitable[dict[str, Any]]]
 
 
 class Executor:
@@ -22,12 +25,14 @@ class Executor:
         scoper: PermissionScoper,
         resolver: ConflictResolver,
         auditor: AuditLog,
+        sub_task_handler: SubTaskHandler | None = None,
     ) -> None:
         self.registry = registry
         self.router = router
         self.scoper = scoper
         self.resolver = resolver
         self.auditor = auditor
+        self.sub_task_handler = sub_task_handler
 
     async def run(self, steps: list[Step], token: PermissionToken) -> dict[str, ToolResult]:
         results: dict[str, ToolResult] = {}
@@ -56,7 +61,6 @@ class Executor:
                 progress_made = True
 
             if not progress_made:
-                # Circular dependency or all remaining have unmet deps
                 for step in remaining_steps:
                     result = ToolResult(
                         step_id=step.id,
@@ -88,6 +92,9 @@ class Executor:
         )
 
     async def _run_with_fallback(self, step: Step, token: PermissionToken) -> ToolResult:
+        if step.sub_task and self.sub_task_handler:
+            return await self._run_sub_task(step, token)
+
         tools = self._select_tools(step)
         last_result = None
 
@@ -131,6 +138,23 @@ class Executor:
             error="All fallback tools failed or no tools available",
         )
 
+    async def _run_sub_task(self, step: Step, token: PermissionToken) -> ToolResult:
+        try:
+            sub_results = await self.sub_task_handler(step.sub_task)
+            return ToolResult(
+                step_id=step.id,
+                tool_name="sub-task",
+                success=True,
+                output={"sub_task_id": step.sub_task.task_id, "results": sub_results},
+            )
+        except Exception as e:
+            return ToolResult(
+                step_id=step.id,
+                tool_name="sub-task",
+                success=False,
+                error=str(e),
+            )
+
 
 class ParallelExecutor:
     def __init__(
@@ -140,15 +164,16 @@ class ParallelExecutor:
         scoper: PermissionScoper,
         resolver: ConflictResolver,
         auditor: AuditLog,
+        sub_task_handler: SubTaskHandler | None = None,
     ) -> None:
         self.registry = registry
         self.router = router
         self.scoper = scoper
         self.resolver = resolver
         self.auditor = auditor
+        self.sub_task_handler = sub_task_handler
 
     async def run(self, steps: list[Step], token: PermissionToken) -> dict[str, ToolResult]:
-        import asyncio
         results: dict[str, ToolResult] = {}
         completed: set[str] = set()
         remaining_steps = {s.id: s for s in steps}
@@ -190,6 +215,23 @@ class ParallelExecutor:
         return results
 
     async def _run_step(self, step: Step, token: PermissionToken, task_id: str) -> ToolResult:
+        if step.sub_task and self.sub_task_handler:
+            try:
+                sub_results = await self.sub_task_handler(step.sub_task)
+                return ToolResult(
+                    step_id=step.id,
+                    tool_name="sub-task",
+                    success=True,
+                    output={"sub_task_id": step.sub_task.task_id, "results": sub_results},
+                )
+            except Exception as e:
+                return ToolResult(
+                    step_id=step.id,
+                    tool_name="sub-task",
+                    success=False,
+                    error=str(e),
+                )
+
         tools = self._select_tools(step)
         last_result = None
 

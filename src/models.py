@@ -14,11 +14,18 @@ class ToolManifest(BaseModel):
     priority: int = 0
 
 
+class SubTask(BaseModel):
+    task_id: str
+    steps: list["Step"] = Field(default_factory=list)
+    allowed_scopes: list[str] = Field(default_factory=list)
+
+
 class Step(BaseModel):
     id: str
     capability: str
     input: dict[str, Any] = Field(default_factory=dict)
     dependencies: list[str] = Field(default_factory=list)
+    sub_task: SubTask | None = None
 
 
 class Task(BaseModel):
