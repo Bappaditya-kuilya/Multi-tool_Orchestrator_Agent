@@ -1,0 +1,20 @@
+name: "mock-calculator"
+capability_tags:
+  - "calculator"
+input_schema:
+  type: "object"
+  properties:
+    expression:
+      type: "string"
+      description: "Mathematical expression to evaluate"
+  required: ["expression"]
+output_schema:
+  type: "object"
+  properties:
+    expression:
+      type: "string"
+    result:
+      type: "number"
+required: ["expression", "result"]
+required_scope: "calculator:eval"
+priority: 10
