@@ -4,6 +4,7 @@ from typing import Any
 
 from .models import ToolManifest
 from .registry import ToolRegistry
+from .semantic import SemanticMatcher
 
 
 class NoToolForCapability(Exception):
@@ -13,11 +14,57 @@ class NoToolForCapability(Exception):
 
 
 class Router:
-    def __init__(self, registry: ToolRegistry) -> None:
+    def __init__(self, registry: ToolRegistry, use_semantic: bool = False, threshold: float = 0.3) -> None:
         self.registry = registry
+        self.use_semantic = use_semantic
+        self.threshold = threshold
+        self._semantic: SemanticMatcher | None = None
+        if use_semantic:
+            self._build_semantic_index()
+
+    def _build_semantic_index(self) -> None:
+        docs = []
+        for tool in self.registry.all_tools():
+            text = f"{tool.name} {' '.join(tool.capability_tags)}"
+            if hasattr(tool, 'description') and tool.description:
+                text += f" {tool.description}"
+            docs.append(text)
+        self._semantic = SemanticMatcher(docs)
 
     def route(self, capability: str) -> list[ToolManifest]:
         tools = self.registry.get_tools_for_capability(capability)
-        if not tools:
+        if tools:
+            return tools
+
+        if self.use_semantic and self._semantic:
+            return self._semantic_route(capability)
+
+        raise NoToolForCapability(capability)
+
+    def _semantic_route(self, capability: str) -> list[ToolManifest]:
+        all_tools = self.registry.all_tools()
+        if not all_tools:
             raise NoToolForCapability(capability)
-        return tools
+
+        candidates = []
+        for tool in all_tools:
+            text = f"{tool.name} {' '.join(tool.capability_tags)}"
+            if hasattr(tool, 'description') and tool.description:
+                text += f" {tool.description}"
+            candidates.append(text)
+
+        ranked = self._semantic.rank(capability, candidates)
+        matched_tools = []
+        for doc, score in ranked:
+            if score < self.threshold:
+                break
+            idx = candidates.index(doc)
+            matched_tools.append(all_tools[idx])
+
+        if not matched_tools:
+            raise NoToolForCapability(capability)
+
+        return matched_tools
+
+    def route_step(self, step: Any) -> list[ToolManifest]:
+        return self.route(step.capability)
