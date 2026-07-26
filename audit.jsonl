@@ -1,8 +1,0 @@
-{"task_id": "demo-1", "step_id": "calc-1", "tool_name": "mock-calculator-advanced", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:24:06.140628Z", "status": "success", "error": null}
-{"task_id": "demo-1", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:24:06.140850Z", "status": "success", "error": null}
-{"task_id": "demo-1", "step_id": "wiki-1", "tool_name": "mock-wikipedia", "scope_used": "wikipedia:read", "timestamp": "2026-07-26T17:24:06.140991Z", "status": "success", "error": null}
-{"task_id": "demo-1", "step_id": "gh-1", "tool_name": "mock-github-search", "scope_used": "github:search", "timestamp": "2026-07-26T17:24:06.141063Z", "status": "success", "error": null}
-{"task_id": "demo-1", "step_id": "calc-1", "tool_name": "mock-calculator-advanced", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:24:20.904778Z", "status": "success", "error": null}
-{"task_id": "demo-1", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:24:20.904913Z", "status": "success", "error": null}
-{"task_id": "demo-1", "step_id": "wiki-1", "tool_name": "mock-wikipedia", "scope_used": "wikipedia:read", "timestamp": "2026-07-26T17:24:20.904988Z", "status": "success", "error": null}
-{"task_id": "demo-1", "step_id": "gh-1", "tool_name": "mock-github-search", "scope_used": "github:search", "timestamp": "2026-07-26T17:24:20.905070Z", "status": "success", "error": null}
