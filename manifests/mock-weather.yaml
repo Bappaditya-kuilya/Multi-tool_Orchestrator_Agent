@@ -1,0 +1,24 @@
+name: "mock-weather"
+capability_tags:
+  - "weather"
+input_schema:
+  type: "object"
+  properties:
+    location:
+      type: "string"
+      description: "City name or location"
+  required: ["location"]
+output_schema:
+  type: "object"
+  properties:
+    location:
+      type: "string"
+    temperature_c:
+      type: "number"
+    condition:
+      type: "string"
+    humidity:
+      type: "integer"
+required: ["location", "temperature_c", "condition", "humidity"]
+required_scope: "weather:read"
+priority: 10

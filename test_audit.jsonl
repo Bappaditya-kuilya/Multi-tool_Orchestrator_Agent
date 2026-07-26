@@ -1,0 +1,42 @@
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:07:22.637103Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:07:22.637306Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:07:22.644173Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:07:22.654896Z", "status": "failure", "error": "Scope calculator:read not granted"}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:09:56.336567Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:09:56.336769Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:09:56.343594Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:09:56.354644Z", "status": "failure", "error": "Scope calculator:read not granted"}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:17:00.745364Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:17:00.745526Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:17:00.751441Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-2", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:17:00.751571Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:17:00.758762Z", "status": "failure", "error": "Scope calculator:read not granted"}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:19:28.088389Z", "status": "failure", "error": "Scope calculator:read not granted"}
+{"task_id": "test", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:19:28.088529Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:19:28.113808Z", "status": "failure", "error": "Scope calculator:read not granted"}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:read", "timestamp": "2026-07-26T17:19:28.123037Z", "status": "failure", "error": "Scope calculator:read not granted"}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:21:17.177593Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:21:17.177715Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:21:17.183886Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-2", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:21:17.184023Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:21:17.190796Z", "status": "failure", "error": "Scope calculator:eval not granted"}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:21:46.520521Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:21:46.520659Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:21:46.532398Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-2", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:21:46.532849Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:21:46.540260Z", "status": "failure", "error": "Scope calculator:eval not granted"}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:23:12.543437Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:23:12.543624Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:23:12.550127Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-2", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:23:12.550337Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:23:12.559167Z", "status": "failure", "error": "Scope calculator:eval not granted"}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:24:10.625453Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:24:10.625681Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:24:10.632294Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-2", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:24:10.632478Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:24:10.638506Z", "status": "failure", "error": "Scope calculator:eval not granted"}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:25:23.513299Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "weather-1", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:25:23.513477Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:25:23.521572Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "step-2", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-07-26T17:25:23.521721Z", "status": "success", "error": null}
+{"task_id": "test", "step_id": "calc-1", "tool_name": "mock-calculator", "scope_used": "calculator:eval", "timestamp": "2026-07-26T17:25:23.527327Z", "status": "failure", "error": "Scope calculator:eval not granted"}
