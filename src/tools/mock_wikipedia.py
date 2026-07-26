@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from .base import BaseTool
@@ -25,6 +26,7 @@ class MockWikipediaTool(BaseTool):
     }
 
     async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        await asyncio.sleep(0.5)
         query = input_data.get("query", "Python (programming language)")
         article = self.ARTICLES.get(query, self.ARTICLES["Python (programming language)"])
         return article

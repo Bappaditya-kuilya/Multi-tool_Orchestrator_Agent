@@ -118,3 +118,109 @@ class Executor:
             scope_used=tool_manifest.required_scope,
             result=result,
         )
+
+
+class ParallelExecutor:
+    def __init__(
+        self,
+        registry: ToolRegistry,
+        router: Router,
+        scoper: PermissionScoper,
+        resolver: ConflictResolver,
+        auditor: AuditLog,
+    ) -> None:
+        self.registry = registry
+        self.router = router
+        self.scoper = scoper
+        self.resolver = resolver
+        self.auditor = auditor
+
+    async def run(self, steps: list[Step], token: PermissionToken) -> dict[str, ToolResult]:
+        import asyncio
+        results: dict[str, ToolResult] = {}
+        completed: set[str] = set()
+        remaining_steps = {s.id: s for s in steps}
+
+        while remaining_steps:
+            ready_batch = [
+                step for step in remaining_steps.values()
+                if all(dep in completed for dep in step.dependencies)
+            ]
+
+            if not ready_batch:
+                for step in remaining_steps.values():
+                    results[step.id] = ToolResult(
+                        step_id=step.id,
+                        tool_name="",
+                        success=False,
+                        error="Dependencies not met (circular or missing)",
+                    )
+                break
+
+            batch_coros = [self._run_step(step, token, task_id=token.task_id) for step in ready_batch]
+            batch_results = await asyncio.gather(*batch_coros, return_exceptions=True)
+
+            for step, result in zip(ready_batch, batch_results):
+                if isinstance(result, Exception):
+                    result = ToolResult(
+                        step_id=step.id,
+                        tool_name="",
+                        success=False,
+                        error=str(result),
+                    )
+
+                results[step.id] = result
+                if result.success:
+                    completed.add(step.id)
+
+                del remaining_steps[step.id]
+
+        return results
+
+    async def _run_step(self, step: Step, token: PermissionToken, task_id: str) -> ToolResult:
+        tool_manifest = self._select_tool(step)
+        if not self._check_permission(tool_manifest, token):
+            result = ToolResult(
+                step_id=step.id,
+                tool_name=tool_manifest.name,
+                success=False,
+                error=f"Scope {tool_manifest.required_scope} not granted",
+            )
+            self._log_audit(step, tool_manifest, result, task_id)
+            return result
+
+        tool = create_tool(tool_manifest.name, tool_manifest)
+        try:
+            output = await tool.execute(step.input)
+            result = ToolResult(
+                step_id=step.id,
+                tool_name=tool_manifest.name,
+                success=True,
+                output=output,
+            )
+        except Exception as e:
+            result = ToolResult(
+                step_id=step.id,
+                tool_name=tool_manifest.name,
+                success=False,
+                error=str(e),
+            )
+
+        self._log_audit(step, tool_manifest, result, task_id)
+        return result
+
+    def _select_tool(self, step: Step) -> Any:
+        tools = self.router.route(step.capability)
+        return self.resolver.resolve(tools)
+
+    def _check_permission(self, tool_manifest: Any, token: PermissionToken) -> bool:
+        return tool_manifest.required_scope in token.granted_scopes
+
+    def _log_audit(self, step: Step, tool_manifest: Any, result: ToolResult, task_id: str) -> None:
+        self.auditor.log(
+            task_id=task_id,
+            step_id=step.id,
+            tool_name=tool_manifest.name,
+            scope_used=tool_manifest.required_scope,
+            result=result,
+        )

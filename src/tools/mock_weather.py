@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import random
 from typing import Any
 
@@ -16,6 +17,7 @@ class MockWeatherTool(BaseTool):
     }
 
     async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        await asyncio.sleep(0.5)
         location = input_data.get("location", "London")
         city_data = self.CITIES.get(location, self.CITIES["London"])
         return {

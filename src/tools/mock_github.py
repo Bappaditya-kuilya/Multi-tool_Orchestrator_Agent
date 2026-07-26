@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from .base import BaseTool
@@ -31,6 +32,7 @@ class MockGitHubSearchTool(BaseTool):
     }
 
     async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        await asyncio.sleep(0.5)
         query = input_data.get("query", "pydantic")
         per_page = input_data.get("per_page", 10)
         repo = self.REPOS.get(query, self.REPOS["pydantic"])
