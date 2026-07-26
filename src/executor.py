@@ -44,44 +44,13 @@ class Executor:
                 if not self._dependencies_met(step, completed):
                     continue
 
-                tool_manifest = self._select_tool(step)
-                if not self._check_permission(tool_manifest, token):
-                    result = ToolResult(
-                        step_id=step.id,
-                        tool_name=tool_manifest.name,
-                        success=False,
-                        error=f"Scope {tool_manifest.required_scope} not granted",
-                    )
-                    results[step.id] = result
-                    self._log_audit(step, tool_manifest, result, token.task_id)
-                    remaining_steps.remove(step)
-                    progress_made = True
-                    continue
-
-                tool = create_tool(tool_manifest.name, tool_manifest)
-                try:
-                    output = await tool.execute(step.input)
-                    result = ToolResult(
-                        step_id=step.id,
-                        tool_name=tool_manifest.name,
-                        success=True,
-                        output=output,
-                    )
-                except Exception as e:
-                    result = ToolResult(
-                        step_id=step.id,
-                        tool_name=tool_manifest.name,
-                        success=False,
-                        error=str(e),
-                    )
-
+                result = await self._run_with_fallback(step, token)
                 results[step.id] = result
-                self._log_audit(step, tool_manifest, result, token.task_id)
 
                 if result.success:
                     completed.add(step.id)
                 else:
-                    logger.warning("Step %s failed: %s", step.id, result.error)
+                    logger.warning("Step %s failed after all fallbacks: %s", step.id, result.error)
 
                 remaining_steps.remove(step)
                 progress_made = True
@@ -100,9 +69,8 @@ class Executor:
 
         return results
 
-    def _select_tool(self, step: Step) -> Any:
-        tools = self.router.route(step.capability)
-        return self.resolver.resolve(tools)
+    def _select_tools(self, step: Step) -> list[Any]:
+        return self.router.route(step.capability)
 
     def _check_permission(self, tool_manifest: Any, token: PermissionToken) -> bool:
         return tool_manifest.required_scope in token.granted_scopes
@@ -117,6 +85,50 @@ class Executor:
             tool_name=tool_manifest.name,
             scope_used=tool_manifest.required_scope,
             result=result,
+        )
+
+    async def _run_with_fallback(self, step: Step, token: PermissionToken) -> ToolResult:
+        tools = self._select_tools(step)
+        last_result = None
+
+        for tool_manifest in tools:
+            if not self._check_permission(tool_manifest, token):
+                last_result = ToolResult(
+                    step_id=step.id,
+                    tool_name=tool_manifest.name,
+                    success=False,
+                    error=f"Scope {tool_manifest.required_scope} not granted",
+                )
+                self._log_audit(step, tool_manifest, last_result, token.task_id)
+                continue
+
+            tool = create_tool(tool_manifest.name, tool_manifest)
+            try:
+                output = await tool.execute(step.input)
+                result = ToolResult(
+                    step_id=step.id,
+                    tool_name=tool_manifest.name,
+                    success=True,
+                    output=output,
+                )
+                self._log_audit(step, tool_manifest, result, token.task_id)
+                return result
+            except Exception as e:
+                result = ToolResult(
+                    step_id=step.id,
+                    tool_name=tool_manifest.name,
+                    success=False,
+                    error=str(e),
+                )
+                self._log_audit(step, tool_manifest, result, token.task_id)
+                last_result = result
+                logger.warning("Tool %s failed for step %s: %s, trying next fallback", tool_manifest.name, step.id, e)
+
+        return last_result or ToolResult(
+            step_id=step.id,
+            tool_name="",
+            success=False,
+            error="All fallback tools failed or no tools available",
         )
 
 
@@ -178,40 +190,51 @@ class ParallelExecutor:
         return results
 
     async def _run_step(self, step: Step, token: PermissionToken, task_id: str) -> ToolResult:
-        tool_manifest = self._select_tool(step)
-        if not self._check_permission(tool_manifest, token):
-            result = ToolResult(
-                step_id=step.id,
-                tool_name=tool_manifest.name,
-                success=False,
-                error=f"Scope {tool_manifest.required_scope} not granted",
-            )
-            self._log_audit(step, tool_manifest, result, task_id)
-            return result
+        tools = self._select_tools(step)
+        last_result = None
 
-        tool = create_tool(tool_manifest.name, tool_manifest)
-        try:
-            output = await tool.execute(step.input)
-            result = ToolResult(
-                step_id=step.id,
-                tool_name=tool_manifest.name,
-                success=True,
-                output=output,
-            )
-        except Exception as e:
-            result = ToolResult(
-                step_id=step.id,
-                tool_name=tool_manifest.name,
-                success=False,
-                error=str(e),
-            )
+        for tool_manifest in tools:
+            if not self._check_permission(tool_manifest, token):
+                last_result = ToolResult(
+                    step_id=step.id,
+                    tool_name=tool_manifest.name,
+                    success=False,
+                    error=f"Scope {tool_manifest.required_scope} not granted",
+                )
+                self._log_audit(step, tool_manifest, last_result, task_id)
+                continue
 
-        self._log_audit(step, tool_manifest, result, task_id)
-        return result
+            tool = create_tool(tool_manifest.name, tool_manifest)
+            try:
+                output = await tool.execute(step.input)
+                result = ToolResult(
+                    step_id=step.id,
+                    tool_name=tool_manifest.name,
+                    success=True,
+                    output=output,
+                )
+                self._log_audit(step, tool_manifest, result, task_id)
+                return result
+            except Exception as e:
+                result = ToolResult(
+                    step_id=step.id,
+                    tool_name=tool_manifest.name,
+                    success=False,
+                    error=str(e),
+                )
+                self._log_audit(step, tool_manifest, result, task_id)
+                last_result = result
+                logger.warning("Tool %s failed for step %s: %s, trying next fallback", tool_manifest.name, step.id, e)
 
-    def _select_tool(self, step: Step) -> Any:
-        tools = self.router.route(step.capability)
-        return self.resolver.resolve(tools)
+        return last_result or ToolResult(
+            step_id=step.id,
+            tool_name="",
+            success=False,
+            error="All fallback tools failed or no tools available",
+        )
+
+    def _select_tools(self, step: Step) -> list[Any]:
+        return self.router.route(step.capability)
 
     def _check_permission(self, tool_manifest: Any, token: PermissionToken) -> bool:
         return tool_manifest.required_scope in token.granted_scopes
