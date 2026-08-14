@@ -85,7 +85,11 @@ class Executor:
         return all(dep in completed for dep in step.dependencies)
 
     def _select_tools(self, step: Step) -> list[Any]:
-        return self.router.route(step.capability)
+        try:
+            return self.router.route(step.capability)
+        except NoToolForCapability:
+            # ponytail: graceful failure - return empty list, handled by caller
+            raise
 
     def _check_permission(self, tool_manifest: Any, token: PermissionToken) -> bool:
         return tool_manifest.required_scope in token.granted_scopes

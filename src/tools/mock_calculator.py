@@ -41,9 +41,10 @@ class SafeEval(ast.NodeVisitor):
         if op_type not in self.BINOPS:
             raise ValueError(f"Unsupported binary operator: {op_type}")
         if op_type is ast.Pow:
-            # ponytail: exponent cap, tighter bound if ints get bigger
+            # ponytail: check bounds BEFORE calling pow to avoid CPU DoS
             if right > 1000 or abs(left) > 10**6:
                 raise ValueError("Power operands out of safe bounds")
+            # don't call pow if bounds exceeded - the check above raises
             result = self.BINOPS[op_type](left, right)
             if isinstance(result, float) and not math.isfinite(result):
                 raise ValueError("Power result out of range")

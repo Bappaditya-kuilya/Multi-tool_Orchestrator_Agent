@@ -92,15 +92,24 @@ class Orchestrator:
         executor.sub_task_handler = orch.run_sub_task
         return orch
 
-    def _create_child_orchestrator(self, sub_task: SubTask, allowed_scopes: list[str]) -> "Orchestrator":
+    def _create_child_orchestrator(self, sub_task: SubTask, allowed_scopes: list[str], parent_token: PermissionToken) -> "Orchestrator":
+        # ponytail: deny when intersection empty; never prune child registry to empty
+        if not allowed_scopes:
+            raise ValueError("No allowed scopes intersect with parent token")
+        
         child_registry = ToolRegistry()
         for tool in self.registry.all_tools():
-            if not allowed_scopes or tool.required_scope in allowed_scopes:
+            if tool.required_scope in allowed_scopes:
                 child_registry._tools[tool.name] = tool
                 for cap in tool.capability_tags:
                     if cap not in child_registry._by_capability:
                         child_registry._by_capability[cap] = []
                     child_registry._by_capability[cap].append(tool)
+        
+        # ponytail: if no tools match allowed scopes, deny rather than give empty registry
+        if not child_registry._tools:
+            raise ValueError("No tools available for allowed scopes")
+            
         for cap in child_registry._by_capability:
             child_registry._by_capability[cap].sort(
                 key=lambda m: (-m.priority, child_registry._tools[m.name].name)
@@ -128,8 +137,18 @@ class Orchestrator:
             )
         depth_token = _sub_task_depth.set(_sub_task_depth.get() + 1)
         try:
+            # ponytail: compute intersection of allowed_scopes with parent token
             allowed_scopes = [s for s in sub_task.allowed_scopes if s in parent_token.granted_scopes]
-            child = self._create_child_orchestrator(sub_task, allowed_scopes)
+            if not allowed_scopes:
+                return {
+                    step.id: {
+                        "success": False,
+                        "output": None,
+                        "error": "Scope not granted by parent token",
+                    }
+                    for step in sub_task.steps
+                }
+            child = self._create_child_orchestrator(sub_task, allowed_scopes, parent_token)
             token = PermissionToken(
                 task_id=sub_task.task_id,
                 granted_scopes=allowed_scopes,
