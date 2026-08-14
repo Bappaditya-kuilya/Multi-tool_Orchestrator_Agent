@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import math
 import operator
 from typing import Any
 
@@ -28,6 +29,8 @@ class SafeEval(ast.NodeVisitor):
 
     def visit_Constant(self, node: ast.Constant) -> Any:
         if isinstance(node.value, (int, float)):
+            if isinstance(node.value, float) and not math.isfinite(node.value):
+                raise ValueError("Constant out of range")
             return node.value
         raise ValueError(f"Unsupported constant type: {type(node.value)}")
 
@@ -37,7 +40,18 @@ class SafeEval(ast.NodeVisitor):
         op_type = type(node.op)
         if op_type not in self.BINOPS:
             raise ValueError(f"Unsupported binary operator: {op_type}")
-        return self.BINOPS[op_type](left, right)
+        if op_type is ast.Pow:
+            # ponytail: exponent cap, tighter bound if ints get bigger
+            if right > 1000 or abs(left) > 10**6:
+                raise ValueError("Power operands out of safe bounds")
+            result = self.BINOPS[op_type](left, right)
+            if isinstance(result, float) and not math.isfinite(result):
+                raise ValueError("Power result out of range")
+            return result
+        result = self.BINOPS[op_type](left, right)
+        if isinstance(result, float) and not math.isfinite(result):
+            raise ValueError("Result out of range")
+        return result
 
     def visit_UnaryOp(self, node: ast.UnaryOp) -> Any:
         operand = self.visit(node.operand)

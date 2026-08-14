@@ -1,0 +1,5 @@
+{"task_id": "advanced-demo-1", "step_id": "sqrt-16", "tool_name": "mock-calculator-advanced", "scope_used": "calculator:eval", "timestamp": "2026-08-13T14:32:54.931122+00:00", "status": "success", "error": null}
+{"task_id": "advanced-demo-1", "step_id": "gh-unknown", "tool_name": "mock-github-search", "scope_used": "github:search", "timestamp": "2026-08-13T14:32:55.431816+00:00", "status": "success", "error": null}
+{"task_id": "advanced-demo-1", "step_id": "dep-parent", "tool_name": "mock-calculator-advanced", "scope_used": "calculator:eval", "timestamp": "2026-08-13T14:32:55.432055+00:00", "status": "success", "error": null}
+{"task_id": "advanced-demo-1", "step_id": "dep-child", "tool_name": "mock-calculator-advanced", "scope_used": "calculator:eval", "timestamp": "2026-08-13T14:32:55.432138+00:00", "status": "success", "error": null}
+{"task_id": "advanced-demo-1", "step_id": "weather-london", "tool_name": "mock-weather", "scope_used": "weather:read", "timestamp": "2026-08-13T14:32:55.932756+00:00", "status": "success", "error": null}

@@ -27,6 +27,8 @@ def _expand_synonyms(words: set[str]) -> set[str]:
 
 
 class SemanticMatcher:
+    """Zero-dependency TF-IDF + substring + synonym matcher for capability routing."""
+
     def __init__(self, documents: list[str] | None = None) -> None:
         self.documents: list[str] = documents or []
         self._idf: dict[str, float] = {}
@@ -50,6 +52,7 @@ class SemanticMatcher:
         }
 
     def add_document(self, doc: str) -> None:
+        """Append a document and rebuild the IDF index."""
         self.documents.append(doc)
         self._fit()
 
@@ -79,6 +82,30 @@ class SemanticMatcher:
 
         return dot / (mag_a * mag_b)
 
+    def _prefix_match(self, a: set[str], b: set[str]) -> bool:
+        # ponytail: bucket by prefix, real trie if docs grow
+        small, large = (a, b) if len(a) <= len(b) else (b, a)
+        short: list[str] = []
+        buckets: dict[str, list[str]] = {}
+        for word in large:
+            if len(word) < 3:
+                short.append(word)
+            else:
+                buckets.setdefault(word[:3], []).append(word)
+        for word in small:
+            if len(word) < 3:
+                for cand in large:
+                    if word.startswith(cand) or cand.startswith(word):
+                        return True
+                continue
+            for cand in buckets.get(word[:3], ()):
+                if word.startswith(cand) or cand.startswith(word):
+                    return True
+            for cand in short:
+                if word.startswith(cand):
+                    return True
+        return False
+
     def _substring_score(self, query: str, document: str) -> float:
         q = query.lower()
         d = document.lower()
@@ -88,10 +115,8 @@ class SemanticMatcher:
         d_words = set(self._tokenize(document))
         if not q_words or not d_words:
             return 0.0
-        for qw in q_words:
-            for dw in d_words:
-                if qw.startswith(dw) or dw.startswith(qw):
-                    return 0.3
+        if self._prefix_match(q_words, d_words):
+            return 0.3
         return 0.0
 
     def _synonym_score(self, query: str, document: str) -> float:
@@ -105,6 +130,9 @@ class SemanticMatcher:
         return 0.0
 
     def similarity(self, query: str, document: str) -> float:
+        """Best of cosine, substring, and synonym similarity, in [0, 1]."""
+        if not query.strip():
+            return 0.0
         vec_q = self._tfidf(query)
         vec_d = self._tfidf(document)
         cosine = self._cosine(vec_q, vec_d)

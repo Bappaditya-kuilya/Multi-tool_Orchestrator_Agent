@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 from typing import Any
-from datetime import datetime
 
 
 class ToolManifest(BaseModel):
@@ -43,14 +42,4 @@ class ToolResult(BaseModel):
     tool_name: str
     success: bool
     output: dict[str, Any] | None = None
-    error: str | None = None
-
-
-class AuditEntry(BaseModel):
-    task_id: str
-    step_id: str
-    tool_name: str
-    scope_used: str
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat() + "Z")
-    status: str
     error: str | None = None

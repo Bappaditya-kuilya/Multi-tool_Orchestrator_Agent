@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
-import yaml
 
 from src.models import Step, PermissionToken
 from src.registry import ToolRegistry
 from src.router import Router
 from src.permission import PermissionScoper
-from src.conflict import ConflictResolver
 from src.executor import Executor
 from src.auditor import AuditLog
 from src.tools.base import BaseTool
 from src.tools import TOOL_CLASSES
+from conftest import write_manifest
 
 
 class AlwaysFailCalculator(BaseTool):
@@ -24,40 +22,24 @@ TOOL_CLASSES["fail-calc"] = AlwaysFailCalculator
 
 
 @pytest.fixture
-def fallback_registry(tmp_path):
-    reg = ToolRegistry()
-    manifests_dir = tmp_path / "manifests"
-    manifests_dir.mkdir()
-
-    (manifests_dir / "fail-calc.yaml").write_text(yaml.dump({
-        "name": "fail-calc",
+def fallback_registry(temp_manifests_dir, sample_manifests):
+    write_manifest(temp_manifests_dir, "fail-calc", {
         "capability_tags": ["calculator"],
         "input_schema": {"type": "object", "properties": {}},
         "output_schema": {"type": "object", "properties": {}},
         "required_scope": "calculator:eval",
         "priority": 20,
-    }))
-
-    (manifests_dir / "real-calc.yaml").write_text(yaml.dump({
-        "name": "real-calc",
-        "capability_tags": ["calculator"],
-        "input_schema": {"type": "object", "properties": {}},
-        "output_schema": {"type": "object", "properties": {}},
-        "required_scope": "calculator:eval",
-        "priority": 10,
-    }))
-
-    reg.load_manifests(manifests_dir)
+    })
+    reg = ToolRegistry()
+    reg.load_manifests(temp_manifests_dir)
     return reg
 
 
 @pytest.fixture
-def fallback_executor(tmp_path, fallback_registry):
+def fallback_executor(fallback_registry, audit_path):
     router = Router(fallback_registry)
     scoper = PermissionScoper(fallback_registry, router)
-    resolver = ConflictResolver()
-    auditor = AuditLog(tmp_path / "test_fallback_audit.jsonl")
-    return Executor(fallback_registry, router, scoper, resolver, auditor)
+    return Executor(fallback_registry, router, scoper, AuditLog(audit_path))
 
 
 @pytest.mark.asyncio
@@ -70,7 +52,7 @@ async def test_fallback_on_tool_failure(fallback_executor):
     result = await fallback_executor.run(steps, token)
 
     assert result["calc-1"].success
-    assert result["calc-1"].tool_name == "real-calc"
+    assert result["calc-1"].tool_name == "mock-calculator"
     assert result["calc-1"].output["result"] == 4
 
 
@@ -87,5 +69,5 @@ async def test_fallback_audit_trail(fallback_executor):
     assert len(entries) == 2
     assert entries[0]["tool_name"] == "fail-calc"
     assert entries[0]["status"] == "failure"
-    assert entries[1]["tool_name"] == "real-calc"
+    assert entries[1]["tool_name"] == "mock-calculator"
     assert entries[1]["status"] == "success"

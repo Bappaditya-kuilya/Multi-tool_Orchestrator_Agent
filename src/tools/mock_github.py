@@ -34,8 +34,16 @@ class MockGitHubSearchTool(BaseTool):
     async def execute(self, input_data: dict[str, Any]) -> dict[str, Any]:
         await asyncio.sleep(0.5)
         query = input_data.get("query", "pydantic")
-        per_page = input_data.get("per_page", 10)
-        repo = self.REPOS.get(query, self.REPOS["pydantic"])
+        raw_per_page = input_data.get("per_page", 20)
+        try:
+            per_page = int(raw_per_page)
+        except (TypeError, ValueError):
+            # ponytail: garbage in, sane default out
+            per_page = 20
+        per_page = min(max(per_page, 1), 100)
+        repo = self.REPOS.get(query)
+        if repo is None:
+            return {"total_count": 0, "items": []}
         return {
             "total_count": 42,
             "items": [repo][:per_page],

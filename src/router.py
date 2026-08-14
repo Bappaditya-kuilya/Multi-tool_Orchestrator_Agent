@@ -8,12 +8,16 @@ from .semantic import SemanticMatcher
 
 
 class NoToolForCapability(Exception):
+    """Raised when no registered tool matches the requested capability."""
+
     def __init__(self, capability: str) -> None:
         self.capability = capability
         super().__init__(f"No tool registered for capability: {capability}")
 
 
 class Router:
+    """Maps a capability to candidate tools, via exact tags or semantic fallback."""
+
     def __init__(self, registry: ToolRegistry, use_semantic: bool = False, threshold: float = 0.3) -> None:
         self.registry = registry
         self.use_semantic = use_semantic
@@ -32,6 +36,7 @@ class Router:
         self._semantic = SemanticMatcher(docs)
 
     def route(self, capability: str) -> list[ToolManifest]:
+        """Return tools for a capability (exact tag match first, semantic if enabled)."""
         tools = self.registry.get_tools_for_capability(capability)
         if tools:
             return tools
@@ -67,4 +72,5 @@ class Router:
         return matched_tools
 
     def route_step(self, step: Any) -> list[ToolManifest]:
+        """Route a single Step by its capability."""
         return self.route(step.capability)

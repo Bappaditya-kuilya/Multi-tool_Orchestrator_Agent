@@ -4,11 +4,10 @@ import pytest
 import yaml
 from pathlib import Path
 
-from src.models import Task, Step, SubTask
+from src.models import Task, Step, SubTask, PermissionToken
 from src.registry import ToolRegistry
 from src.router import Router
 from src.permission import PermissionScoper
-from src.conflict import ConflictResolver
 from src.executor import Executor
 from src.auditor import AuditLog
 from src.orchestrator import Orchestrator
@@ -52,7 +51,7 @@ async def test_sub_task_execution(orchestrator):
         steps=[Step(id="sub-step-1", capability="weather", input={"location": "NYC"})],
         allowed_scopes=["weather:read"],
     )
-    results = await orchestrator.run_sub_task(sub_task)
+    results = await orchestrator.run_sub_task(sub_task, PermissionToken(task_id="parent", granted_scopes=["weather:read"]))
     assert "sub-step-1" in results
     assert results["sub-step-1"]["success"] is True
 
@@ -64,7 +63,7 @@ async def test_sub_task_permission_isolation(orchestrator):
         steps=[Step(id="sub-step-1", capability="weather", input={})],
         allowed_scopes=[],
     )
-    results = await orchestrator.run_sub_task(sub_task)
+    results = await orchestrator.run_sub_task(sub_task, PermissionToken(task_id="parent", granted_scopes=["weather:read"]))
     assert results["sub-step-1"]["success"] is False
 
 

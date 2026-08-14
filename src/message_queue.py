@@ -4,7 +4,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Awaitable
 
 logger = logging.getLogger(__name__)
@@ -16,14 +16,17 @@ class Message:
     topic: str = ""
     payload: dict[str, Any] = field(default_factory=dict)
     sender: str = ""
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat() + "Z")
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     reply_to: str | None = None
+    correlation_id: str | None = None
 
 
 MessageHandler = Callable[[Message], Awaitable[dict[str, Any] | None]]
 
 
 class MessageQueue:
+    _HISTORY_CAP = 10_000
+
     def __init__(self) -> None:
         self._queues: dict[str, asyncio.Queue[Message]] = {}
         self._handlers: dict[str, list[MessageHandler]] = {}
@@ -38,9 +41,17 @@ class MessageQueue:
         self.create_topic(topic)
         self._handlers[topic].append(handler)
 
+    def unsubscribe(self, topic: str, handler: MessageHandler) -> None:
+        handlers = self._handlers.get(topic)
+        if handlers is not None and handler in handlers:
+            handlers.remove(handler)
+
     async def publish(self, message: Message) -> str:
         self.create_topic(message.topic)
         self._history.append(message)
+        if len(self._history) > self._HISTORY_CAP:
+            # ponytail: ring buffer, swap to disk-backed if real traffic
+            del self._history[: len(self._history) - self._HISTORY_CAP]
         await self._queues[message.topic].put(message)
         logger.debug("Published message %s to topic %s", message.message_id, message.topic)
         return message.message_id
@@ -57,15 +68,29 @@ class MessageQueue:
         if message is None:
             return None
 
-        handlers = self._handlers.get(topic, [])
         result = None
-        for handler in handlers:
+        for handler in list(self._handlers.get(topic, [])):
             try:
                 result = await handler(message)
             except Exception as e:
                 logger.error("Handler failed for message %s: %s", message.message_id, e)
 
         return result
+
+    def pop_buffered(self, topic: str) -> list[Message]:
+        """Pop all messages buffered for a topic without running handlers.
+
+        Buffered-reply read path: replies published before a consumer attached
+        (or between polls) stay queued here until popped or consumed — the
+        drain-vs-process invariant lives in the queue, so consumers never
+        reach into topic internals (F-5).
+        """
+        messages = []
+        while True:
+            try:
+                messages.append(self._queues[topic].get_nowait())
+            except (KeyError, asyncio.QueueEmpty):
+                return messages
 
     def get_history(self, topic: str | None = None) -> list[Message]:
         if topic:
@@ -83,36 +108,76 @@ class DistributedExecutor:
         self.queue = queue
         self._results: dict[str, dict[str, Any]] = {}
 
-    async def submit_task(self, task_id: str, tool_name: str, input_data: dict[str, Any]) -> str:
-        message = Message(
+    def _new_request(self, task_id: str, tool_name: str, input_data: dict[str, Any]) -> Message:
+        request_id = str(uuid.uuid4())
+        return Message(
+            message_id=request_id,
             topic=f"task.{tool_name}",
             payload={"task_id": task_id, "input": input_data},
             sender="orchestrator",
+            # unique per-request reply topic: a task_id-based topic lets any
+            # party knowing the task_id eavesdrop on worker replies (H-3)
+            reply_to=f"reply.{request_id}",
         )
+
+    async def submit_task(self, task_id: str, tool_name: str, input_data: dict[str, Any]) -> str:
+        message = self._new_request(task_id, tool_name, input_data)
+        reply_topic = message.reply_to
+        self.queue.create_topic(reply_topic)
+
+        async def store_reply(msg: Message) -> dict[str, Any] | None:
+            if msg.correlation_id == message.message_id:
+                self._results[task_id] = msg.payload
+                self.queue.unsubscribe(reply_topic, store_reply)
+            return None
+
+        self.queue.subscribe(reply_topic, store_reply)
         return await self.queue.publish(message)
 
-    async def submit_and_wait(self, task_id: str, tool_name: str, input_data: dict[str, Any], timeout: float = 30.0) -> dict[str, Any]:
-        message = Message(
-            topic=f"task.{tool_name}",
-            payload={"task_id": task_id, "input": input_data},
-            sender="orchestrator",
-            reply_to=f"reply.{task_id}",
-        )
+    async def submit_and_wait(
+        self, task_id: str, tool_name: str, input_data: dict[str, Any], timeout: float = 30.0
+    ) -> dict[str, Any]:
+        message = self._new_request(task_id, tool_name, input_data)
+        reply_topic = message.reply_to
+        reply_queue: asyncio.Queue[Message] = asyncio.Queue()
 
-        reply_queue = asyncio.Queue()
-        self.queue.create_topic(message.reply_to)
+        async def reply_handler(msg: Message) -> dict[str, Any] | None:
+            # ponytail: in-process trust boundary, HMAC per-message auth only if workers leave the process
+            if msg.correlation_id == message.message_id:
+                reply_queue.put_nowait(msg)
+            return None
 
-        async def reply_handler(msg: Message) -> None:
-            await reply_queue.put(msg)
-
-        self.queue.subscribe(message.reply_to, reply_handler)
-        await self.queue.publish(message)
-
+        self.queue.create_topic(reply_topic)
+        self.queue.subscribe(reply_topic, reply_handler)
         try:
-            reply = await asyncio.wait_for(reply_queue.get(), timeout=timeout)
-            return reply.payload
-        except asyncio.TimeoutError:
-            return {"error": "Timeout waiting for reply"}
+            await self.queue.publish(message)
+            loop = asyncio.get_running_loop()
+            deadline = loop.time() + timeout
+            while True:
+                # queue-owned buffer: replies delivered before subscribe (or
+                # between polls) are popped here, not lost (F-5)
+                for buffered in self.queue.pop_buffered(reply_topic):
+                    if buffered.correlation_id == message.message_id:
+                        reply_queue.put_nowait(buffered)
+                try:
+                    reply = reply_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+                else:
+                    self._results[task_id] = reply.payload
+                    return reply.payload
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    return {"error": "Timeout waiting for reply"}
+                try:
+                    reply = await asyncio.wait_for(reply_queue.get(), timeout=min(remaining, 0.1))
+                except asyncio.TimeoutError:
+                    continue
+                self._results[task_id] = reply.payload
+                return reply.payload
+        finally:
+            self.queue.unsubscribe(reply_topic, reply_handler)
 
     def get_results(self, task_id: str) -> dict[str, Any] | None:
+        """Latest stored reply for a completed task; None for an unknown task (nothing stored yet)."""
         return self._results.get(task_id)

@@ -1,0 +1,54 @@
+{
+  "task_id": "advanced-demo-1",
+  "steps": [
+    {
+      "id": "sqrt-16",
+      "capability": "calculator",
+      "input": {
+        "expression": "sqrt(16)"
+      },
+      "dependencies": []
+    },
+    {
+      "id": "gh-unknown",
+      "capability": "github-search",
+      "input": {
+        "query": "nonexistent-repo"
+      },
+      "dependencies": []
+    },
+    {
+      "id": "dep-parent",
+      "capability": "calculator",
+      "input": {
+        "expression": "10 / 2"
+      },
+      "dependencies": []
+    },
+    {
+      "id": "dep-child",
+      "capability": "calculator",
+      "input": {
+        "expression": "6 * 7"
+      },
+      "dependencies": ["dep-parent"]
+    },
+    {
+      "id": "weather-london",
+      "capability": "weather",
+      "input": {
+        "location": "London",
+        "seed": 0
+      },
+      "dependencies": []
+    },
+    {
+      "id": "sem-search",
+      "capability": "search",
+      "input": {
+        "query": "pydantic"
+      },
+      "dependencies": []
+    }
+  ]
+}

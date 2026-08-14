@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import pytest
 from pathlib import Path
 import yaml
@@ -91,3 +93,29 @@ def test_router_semantic_disabled_raises(semantic_registry):
     router = Router(semantic_registry, use_semantic=False)
     with pytest.raises(NoToolForCapability):
         router.route("temperature")
+
+
+def test_empty_query_similarity_is_zero(semantic_matcher):
+    assert semantic_matcher.similarity("", "mock-weather weather") == 0.0
+    assert semantic_matcher.similarity("   ", "mock-weather weather") == 0.0
+    ranked = semantic_matcher.rank("", semantic_matcher.documents)
+    assert all(score == 0.0 for _, score in ranked)
+
+
+def test_substring_score_prefix_semantics(semantic_matcher):
+    assert semantic_matcher._substring_score("alpha beta", "a b c") == 0.3
+    assert semantic_matcher._substring_score("xyz qrs", "abc def") == 0.0
+    assert semantic_matcher._substring_score("abandon abacus", "ab abc") == 0.3
+    assert semantic_matcher._substring_score("calculator", "calc") == 0.5
+
+
+def test_rank_1000_word_query_50_docs_under_2s():
+    docs = [
+        " ".join(f"topic{d}word{i}" for i in range(1000))
+        for d in range(50)
+    ]
+    query = " ".join(f"queryword{i}" for i in range(1000))
+    matcher = SemanticMatcher(docs)
+    start = time.monotonic()
+    matcher.rank(query, docs)
+    assert time.monotonic() - start < 2.0

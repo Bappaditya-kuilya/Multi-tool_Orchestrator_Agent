@@ -20,9 +20,10 @@ class MockWeatherTool(BaseTool):
         await asyncio.sleep(0.5)
         location = input_data.get("location", "London")
         city_data = self.CITIES.get(location, self.CITIES["London"])
+        rng = random.Random(input_data.get("seed", 0))
         return {
             "location": location,
-            "temperature_c": city_data["temperature_c"] + random.randint(-3, 3),
+            "temperature_c": city_data["temperature_c"] + rng.randint(-3, 3),
             "condition": city_data["condition"],
             "humidity": city_data["humidity"],
         }

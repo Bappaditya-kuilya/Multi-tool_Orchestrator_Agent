@@ -7,8 +7,7 @@ from src.models import Task, Step, ToolResult, PermissionToken
 from src.registry import ToolRegistry
 from src.router import Router
 from src.permission import PermissionScoper
-from src.conflict import ConflictResolver
-from src.executor import Executor
+from src.executor import Executor, ParallelExecutor
 from src.auditor import AuditLog
 from src.tools import create_tool
 
@@ -35,13 +34,11 @@ priority: 10
 
 
 @pytest.fixture
-def executor(registry):
+def executor(registry, tmp_path):
     router = Router(registry)
     scoper = PermissionScoper(registry, router)
-    resolver = ConflictResolver()
-    auditor = AuditLog("test_audit.jsonl")
-    return Executor(registry, router, scoper, resolver, auditor)
-
+    auditor = AuditLog(str(tmp_path / "test_audit.jsonl"))
+    return Executor(registry, router, scoper, auditor)
 
 @pytest.mark.asyncio
 async def test_sequential_execution(executor):
@@ -76,3 +73,29 @@ async def test_permission_denied(executor):
     results = await executor.run(steps, token)
     assert not results["calc-1"].success
     assert "not granted" in results["calc-1"].error
+
+
+@pytest.mark.asyncio
+async def test_duplicate_step_ids_rejected(executor):
+    steps = [
+        Step(id="dup", capability="calculator", input={"expression": "2 + 2"}),
+        Step(id="dup", capability="weather", input={"location": "London"}),
+    ]
+    token = PermissionToken(task_id="test", granted_scopes=["calculator:eval", "weather:read"])
+    with pytest.raises(ValueError, match="Duplicate step id: dup"):
+        await executor.run(steps, token)
+
+
+@pytest.mark.asyncio
+async def test_duplicate_step_ids_rejected_parallel(registry, tmp_path):
+    router = Router(registry)
+    scoper = PermissionScoper(registry, router)
+    auditor = AuditLog(str(tmp_path / "test_audit.jsonl"))
+    executor = ParallelExecutor(registry, router, scoper, auditor)
+    steps = [
+        Step(id="dup", capability="calculator", input={"expression": "2 + 2"}),
+        Step(id="dup", capability="weather", input={"location": "London"}),
+    ]
+    token = PermissionToken(task_id="test", granted_scopes=["calculator:eval", "weather:read"])
+    with pytest.raises(ValueError, match="Duplicate step id: dup"):
+        await executor.run(steps, token)

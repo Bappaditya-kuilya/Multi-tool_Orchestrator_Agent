@@ -18,8 +18,7 @@ class PermissionScoper:
         for step in task.steps:
             try:
                 tools = self.router.route(step.capability)
-                for tool in tools:
-                    scopes.add(tool.required_scope)
+                scopes.add(tools[0].required_scope)
             except NoToolForCapability:
                 continue
 
