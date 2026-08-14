@@ -47,6 +47,7 @@ class Orchestrator:
         task_file: Path | str,
         manifests_dir: Path | str,
         audit_file: Path | str,
+        executor_cls: type[Executor] = Executor,
     ) -> tuple["Orchestrator", Task]:
         registry = ToolRegistry()
         try:
@@ -57,7 +58,7 @@ class Orchestrator:
         router = Router(registry)
         scoper = PermissionScoper(registry, router)
         auditor = AuditLog(Path(audit_file))
-        executor = Executor(registry, router, scoper, auditor)
+        executor = executor_cls(registry, router, scoper, auditor)
 
         try:
             task_data = json.loads(Path(task_file).read_text())

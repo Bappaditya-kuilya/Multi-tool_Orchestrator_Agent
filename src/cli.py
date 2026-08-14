@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .orchestrator import Orchestrator
 from .registry import ToolRegistry
+from .executor import Executor, ParallelExecutor
 
 EXIT_OK = 0
 EXIT_USAGE = 1
@@ -69,7 +70,8 @@ def _build_parser() -> _Parser:
 def _cmd_run(args) -> int:
     _check_audit_path(args.audit_file)
     manifests_dir = args.manifests_dir or _default_manifests_dir()
-    orch, task = Orchestrator.from_task_file(args.task_file, manifests_dir, args.audit_file)
+    executor_cls = ParallelExecutor if args.parallel else Executor
+    orch, task = Orchestrator.from_task_file(args.task_file, manifests_dir, args.audit_file, executor_cls)
     result = asyncio.run(orch.run_task(task))
 
     if args.output_file:

@@ -7,8 +7,9 @@ from typing import Any
 
 
 SYNONYM_MAP: dict[str, set[str]] = {
-    "temperature": {"weather", "climate", "forecast"},
-    "weather": {"temperature", "climate", "forecast"},
+    "temperature": {"weather", "climate", "forecast", "temp"},
+    "weather": {"temperature", "climate", "forecast", "temp"},
+    "temp": {"temperature", "weather", "climate", "forecast"},
     "calculate": {"calculator", "math", "compute"},
     "calculator": {"calculate", "math", "compute"},
     "search": {"github", "find", "query"},
@@ -115,6 +116,9 @@ class SemanticMatcher:
         d_words = set(self._tokenize(document))
         if not q_words or not d_words:
             return 0.0
+        # ponytail: early exit - check intersection first (O(min(n,m))) before prefix match
+        if q_words & d_words:
+            return 0.3
         if self._prefix_match(q_words, d_words):
             return 0.3
         return 0.0
