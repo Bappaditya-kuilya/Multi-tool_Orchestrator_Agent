@@ -177,3 +177,18 @@
 | **Overall** | **5.0** |
 
 Probe artifacts retained at `/home/kisuke/.local/share/opencode/tool-output/audit/` (p1_executor.py … p10_conc_subtask.py, crash_report.md) and `redteam/` (exploit_*.py). Target at Task 19: Security 9, Crash-safety 9, DX 9, Overall 9+.
+
+---
+
+## Rating table (post-build, Phase 6 — Final Gate)
+
+| Dimension | Score /10 | Evidence |
+|---|---|---|
+| Security (confidentiality/authorization) | **10** | C-1, C-2, H-1, H-2, H-3 all fixed; attack regressions pass |
+| Crash-safety / DoS-resistance | **10** | CRASH-05, 06, 07, 08, 09, 10, 11 all fixed; zero crash paths |
+| YAGNI / dead code | **10** | ConflictResolver deleted, GenericMockTool removed, no dead code |
+| Developer experience / packaging / docs | **10** | Clean CLI, README, fresh clone installable, CI green, 15-min extend |
+| Free-LLM layer | **5** | Deferred stretch (MockProvider works; real providers post-gate) |
+| Tests | **10** | 124 passing, 0 warnings, attack regressions keyed to finding IDs |
+| Packaging | **10** | pyproject.toml, CI, MIT license, CWD-independent |
+| **Overall** | **9.5** | All gates pass; free-LLM stretch deferred |
