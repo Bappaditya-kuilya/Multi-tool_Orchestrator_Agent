@@ -8,80 +8,106 @@
   <img src="https://img.shields.io/badge/Security-9.5%2F10-critical?logo=security" alt="Security 9.5/10">
 </p>
 
-A **permission-scoped multi-tool orchestration agent** for learning and reference. Run complex multi-step tasks with tool routing, scope confinement, and audit trails — all in ~1,500 lines of clean Python.
+A permission-scoped multi-tool orchestration agent for learning and reference. Run complex multi-step tasks with tool routing, scope confinement, and audit trails — all in ~1,500 lines of Python.
 
 ---
 
-## TL;DR
+## Get Running in 30 Seconds
 
 ```bash
-# Clone & install (works from ANY directory)
 git clone https://github.com/Bappaditya-kuilya/Multi-tool_Orchestrator_Agent
 cd Multi-tool_Orchestrator_Agent
 pip install -e .
 
-# Run a demo (4 tools, parallel, semantic matching)
+# Run the demo (4 tools, sequential)
 python -m src.cli run examples/demo-task.json
+
+# Run the demo in parallel
 python -m src.cli run --parallel examples/demo-task.json
+
+# Use semantic capability matching
 python -m src.cli run --semantic examples/demo-task.json
 ```
 
 ---
 
-## Architecture at a Glance
+## How It Works
+
+A task is a JSON file with steps. Each step names a capability (`weather`, `calculator`, etc.) and the orchestrator routes it to the right tool.
+
+### The Pipeline
 
 ```mermaid
 flowchart LR
     subgraph Input
         A[Task JSON]
     end
-    
-    subgraph Core["Core Pipeline"]
-        B[Registry<br/>YAML Manifests]
-        C[Router<br/>Exact + Semantic]
-        D[PermissionScoper<br/>Token w/ Scopes]
-        E[Executor<br/>Sequential / Parallel]
-        F[AuditLog<br/>JSONL Trail]
+
+    subgraph Core
+        B[Registry<br/>loads YAML manifests]
+        C[Router<br/>exact tag match<br/>then semantic fallback]
+        D[PermissionScoper<br/>issues scoped token]
+        E[Executor<br/>sequential or parallel]
+        F[AuditLog<br/>JSONL trail]
     end
-    
-    subgraph Tools["Mock Tools"]
+
+    subgraph Tools
         G1[Weather]
         G2[Wikipedia]
         G3[Calculator]
         G4[GitHub Search]
     end
-    
-    subgraph Distributed["Distributed Mode"]
-        H[MessageQueue<br/>Pub/Sub]
-        I[DistributedExecutor]
-    end
-    
-    subgraph Security["Security Features"]
-        J[Sub-task Confinement]
-        K[Token Inflation Prevention]
-        L[Reply-Topic Isolation]
-        M[CPU DoS Protection]
-    end
-    
+
     A --> B --> C --> D --> E
     E --> F
     E --> G1 & G2 & G3 & G4
-    E --> H --> I
-    
-    D -.-> J
-    D -.-> K
-    H -.-> L
-    G3 -.-> M
-    
+
     classDef core fill:#e3f2fd,stroke:#1976d2,stroke-width:2px;
     classDef tools fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
-    classDef dist fill:#fce4ec,stroke:#c2185b,stroke-width:2px;
-    classDef sec fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
-    
+
     class B,C,D,E,F core;
     class G1,G2,G3,G4 tools;
-    class H,I dist;
-    class J,K,L,M sec;
+```
+
+### Step Execution (with Fallbacks)
+
+```mermaid
+flowchart TD
+    S[Step arrives] --> R{Router finds tools?}
+    R -->|No| F1[Fail: No tool for capability]
+    R -->|Yes| P{Permission check}
+    P -->|Denied| N[Skip tool, try next]
+    P -->|Granted| T[Run tool]
+    T -->|Success| OK[Return result]
+    T -->|Exception| N
+    N -->|More tools?| P
+    N -->|No more| F2[Fail: all fallbacks exhausted]
+
+    classDef fail fill:#ffebee,stroke:#c62828,stroke-width:2px;
+    classDef ok fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef check fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+
+    class F1,F2 fail;
+    class OK ok;
+    class R,P check;
+```
+
+### Security: Sub-task Confinement
+
+```mermaid
+flowchart LR
+    P[Parent Token<br/>scopes: A, B, C] -->|intersect| C[Child Token<br/>scopes: A, B]
+    C --> T1[Tool A]
+    C --> T2[Tool B]
+    C -.->|blocked| T3[Tool C]
+
+    classDef parent fill:#e3f2fd,stroke:#1976d2,stroke-width:2px;
+    classDef child fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef blocked fill:#ffebee,stroke:#c62828,stroke-width:2px,stroke-dasharray:5;
+
+    class P parent;
+    class C,T1,T2 child;
+    class T3 blocked;
 ```
 
 ---
@@ -134,22 +160,12 @@ Output:
 
 ---
 
-## Built-in Tools (Mock)
-
-| Tool | Capability | What it does |
-|------|------------|--------------|
-| `mock-weather` | `weather` | Current weather for 5 cities (deterministic with seed) |
-| `mock-wikipedia` | `wikipedia` | Article summaries for Python, AI, ML |
-| `mock-calculator` | `calculator` | Safe math: `+ - * / // % **` and unary ops |
-| `mock-calculator-advanced` | `calculator` | Advanced: `sqrt`, `abs`, `round`, `min`, `max` |
-| `mock-github-search` | `github-search` | Search 3 repos: pydantic, fastapi, httpx |
-
----
-
 ## Add a New Tool in 3 Steps
 
-### 1. Create manifest (`manifests/mock-time.yaml`)
+### 1. Create a manifest
+
 ```yaml
+# manifests/mock-time.yaml
 name: "mock-time"
 display_name: "Mock Time Tool"
 capability_tags: ["time"]
@@ -167,8 +183,10 @@ output_schema:
     time: {type: "string"}
 ```
 
-### 2. Implement tool (`src/tools/mock_time.py`)
+### 2. Implement the tool
+
 ```python
+# src/tools/mock_time.py
 from __future__ import annotations
 import datetime
 from typing import Any
@@ -185,8 +203,10 @@ class MockTimeTool(BaseTool):
         return {"time": now.strftime("%Y-%m-%d %H:%M:%S UTC")}
 ```
 
-### 3. Register it (`src/tools/__init__.py`)
+### 3. Register it
+
 ```python
+# src/tools/__init__.py
 from .mock_time import MockTimeTool
 
 TOOL_CLASSES = {
@@ -196,16 +216,26 @@ TOOL_CLASSES = {
 ```
 
 ### 4. Test it
+
 ```bash
-cat > test-time.json << 'EOF'
-{"task_id": "time-test", "steps": [{"id": "t1", "capability": "time", "input": {"format": "iso"}}]}
-EOF
-python -m src.cli run test-time.json
+python -m src.cli run <(echo '{"task_id":"t","steps":[{"id":"t1","capability":"time","input":{"format":"iso"}}]}')
 ```
 
 ---
 
-## Security Features
+## Built-in Tools (Mock)
+
+| Tool | Capability | What it does |
+|------|------------|--------------|
+| `mock-weather` | `weather` | Current weather for 5 cities (deterministic with seed) |
+| `mock-wikipedia` | `wikipedia` | Article summaries for Python, AI, ML |
+| `mock-calculator` | `calculator` | Safe math: `+ - * / // % **` and unary ops |
+| `mock-calculator-advanced` | `calculator` | Advanced: `sqrt`, `abs`, `round`, `min`, `max` |
+| `mock-github-search` | `github-search` | Search 3 repos: pydantic, fastapi, httpx |
+
+---
+
+## Security
 
 | Feature | How it works |
 |---------|--------------|
@@ -214,29 +244,33 @@ python -m src.cli run test-time.json
 | **Reply-topic isolation** | Per-message unique reply topics + correlation IDs |
 | **CPU DoS protection** | Exponent cap (`**` ≤ 1000), finiteness checks |
 
+### How scope confinement works
+
+A parent task with scopes `["weather:read", "calc:eval", "wiki:read"]` spawns a sub-task requesting `["wiki:read", "github:read"]`. The child only gets `["wiki:read"]` because that's the intersection. `github:read` was never granted to the parent, so the child can't escalate.
+
 ---
 
 ## Running Tests
 
 ```bash
-# All tests (124 passing, 0 warnings)
+# All 124 tests (0 warnings)
 python -m pytest tests/ -q
 
 # Security regression tests
 python -m pytest tests/test_security_*.py -q
 
-# Finding-keyed attack regressions
+# Attack regressions
 python -m pytest tests/test_attacks.py -q
 
-# From ANY directory (CWD-independent)
+# From any directory
 python -m pytest /path/to/repo/tests/ -q
 ```
 
 ---
 
-## Free-LLM Layer (Stretch)
+## Free-LLM Layer
 
-Run at $0 with free providers — **stdlib only** (`urllib.request`):
+Run at $0 with free providers — stdlib only (`urllib.request`):
 
 ```python
 from src.llm.providers import create_provider
@@ -274,16 +308,14 @@ provider = create_provider("groq")        # openai/gpt-oss-120b
 │   ├── models.py               # Pydantic models
 │   ├── llm/providers.py        # Free-LLM providers
 │   └── tools/                  # 5 mock tool implementations
-��── tests/                      # 124 tests (security, integration, attacks)
+├── tests/                      # 124 tests (security, integration, attacks)
 ```
 
 ---
 
 ## Why This Exists
 
-> A **reference architecture** for scoped multi-tool agent orchestration.  
-> Read the code, run the demos, extend with one new tool in < 15 minutes.  
-> Find no code path that crashes or escalates scopes.
+A reference architecture for scoped multi-tool agent orchestration. Read the code, run the demos, extend with one new tool in under 15 minutes. No code path crashes or escalates scopes.
 
 **Target audience:** Backend engineers evaluating permission-scoped tool delegation patterns.
 
